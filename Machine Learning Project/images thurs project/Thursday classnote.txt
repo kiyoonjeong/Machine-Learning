@@ -1,0 +1,31 @@
+natural cubic spline 이 최고의 선택이래
+
+spline 이 non-parameter function에서 사용되는데
+
+sin function 같이 polynomial로 표현하기 힘든것을 spline으로 예측 가능
+
+regulariztion (lambda*integral(f미분미분(t))^2)dt 쓰는 이유
+
+안 쓰면 f(x) 를 아무거나 쓰면 되므로, error 가 0이 됨
+
+min(sigma(y - f(x))) -> f가 모든 y를 지나가는 function이라 하면 되므로 0이됨
+따라서, min(sigma(y - f(x))) + (lambda*integral(f미분미분(t))^2)dt
+
+*spline 이란?
+knots 가 뭐임?,,,,,,,(k knots create k+1 intervals (k quantile))
+
+*natural cubic splines
+->  a cubic spline that is linear beyond the boundary knots.
+So df = k (knots : interior + boundary)
+
+* knot selection : number and placement. Some software packages automatically add max/min boundary points.
+
+*** ns in r (natural spline)
+
+spmodel = lm(y~ns(x, knots=c(0.2,0.4,0.6,0.8))) # better knot selection
+
+* 그냥 cubic spline 이랑 natural cubic spline 차이점
+cubic spline 은 df = 6, knots = 2
+natural cubic spline 은 df = 6, knots = 6
+
+ 

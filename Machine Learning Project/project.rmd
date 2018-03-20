@@ -1,0 +1,163 @@
+
+```{r}
+setwd("C:/Users/Kiyoon Jeong/Desktop")
+
+df <- read.csv(file = "voice.csv")
+
+df$label <- factor(df$label)
+
+df$label <- as.numeric(df$label)
+
+df$label[df$label == 1] <- 0
+df$label[df$label == 2] <- 1
+
+sample <- sample(1:3168, 3168/4 , replace=F)
+
+train <- df[-sample,]
+test <- df[sample,]
+
+library(class)
+
+cl <- factor(train[,21])
+
+knn1 <- knn(train, test, cl, k=1)
+
+knn3 <- knn(train, test, cl, k=3)
+
+knn5 <- knn(train, test, cl, k=5)
+
+knn7 <- knn(train, test, cl, k=7)
+
+knn10 <- knn(train, test, cl, k=10)
+
+knn20 <- knn(train, test, cl, k=20)
+
+table(knn1, test$label)
+mean(knn1 != test$label)
+
+table(knn3, test$label)
+mean(knn3 != test$label)
+
+table(knn5, test$label)
+mean(knn5 != test$label)
+
+table(knn7, test$label)
+mean(knn7 != test$label)
+
+table(knn10, test$label)
+mean(knn10 != test$label)
+
+table(knn20, test$label)
+mean(knn20 != test$label)
+
+```
+
+```{r}
+
+design = as.matrix(sapply(train[1:20], as.numeric))
+newdata = as.matrix(sapply(test[1:20], as.numeric))
+   
+library(e1071)
+library(glmnet)
+# l2 penalized logistic regression
+
+logistic.l2 = cv.glmnet(x = design, y = train$label, family = "binomial", nfolds = 10, alpha = 0)
+plot(logistic.l2$glmnet.fit, "lambda", label=TRUE)
+
+pred = predict(logistic.l2, newx = newdata, s="lambda.min", type="response")
+# type = response: probabilities (on the response variable scale)
+misclsErr = sum( round(pred) != test$label )
+print(misclsErr/792)
+
+# l1 penalized logistic regression
+
+logistic.l1 = cv.glmnet(x = design, y = train$label, family = "binomial", nfolds = 10, alpha = 1)
+plot(logistic.l1$glmnet.fit, "lambda", label=TRUE)
+
+pred = predict(logistic.l1, newx=as.matrix(sapply(test[1:20], as.numeric)), s="lambda.min", type="response")
+# type = response: probabilities (on the response variable scale)
+misclsErr = sum( round(pred) != test$label )
+print(misclsErr)
+print(misclsErr/792)
+
+```
+
+```{r}
+
+# SVM
+
+svmmodel = svm(x = design, y = train$label, scale = TRUE)
+# Note: we are using the naive kernel here, and the parameters are NOT tuned. So the performance of SVM here is not the best.
+pred = predict(svmmodel, newdata=newdata )
+misclsErr = sum( round(pred) != test$label )
+print(misclsErr/792)
+
+svmmodels = tune.svm(x= design, y = train$label, 
+                    gamma = 2^(-4:1), cost = 2^(-1:1), 
+                    tunecontrol = tune.control(sampling = "cross",cross=10),
+                    scale = TRUE)
+plot(svmmodels)
+summary(svmmodels)
+pred = predict(svmmodels$best.model, newdata=newdata )
+misclsErr = sum( round(pred) != test$label )
+print(misclsErr/792)
+
+```
+
+```{r}
+#CART
+#tree
+
+library(rpart)
+par(mfrow=c(1,1))
+tree <- rpart(label ~ ., data = train)
+plot(tree, compress=TRUE, uniform = TRUE); text(tree, use.n=TRUE); title("Bi-class")
+plotcp(tree)
+printcp(tree)
+
+# In general, we can find the optimal cp that minimizes the CV error (fold given by xval)
+ind = min(which(tree$cptable[,4]==min(tree$cptable[,4])))
+tree$cptable[ind,]
+treeopt = print(tree, cp= tree$cptable[ind,1])
+plot(treeopt, compress=TRUE, uniform = TRUE); text(treeopt, use.n=TRUE); title("Bi-class")
+plotcp(tree)
+printcp(tree)
+
+#5 split is enough!
+
+misclsErr = mean(round(predict(tree, test)) != test$label)
+
+print(misclsErr)
+
+```
+
+```{r}
+#################### Random Forest
+library(randomForest)
+
+df$label <- factor(df$label)
+train$label <- factor(train$label)
+test$label <- factor(test$label)
+
+set.seed(123)
+rfmodel <- randomForest(label ~. , data = train, ntree = 100, type = classfication, importance = TRUE)
+rfpreds = predict(rfmodel, test,  type="response")
+conftab = table(test$label, rfpreds)
+miscls.rf = 1-sum(diag(conftab))/sum(conftab)
+plot(rfmodel)
+#60 trees are enough
+
+# variable importance
+
+importance(rfmodel)
+
+varImpPlot(rfmodel)
+
+par(mfrow=c(3,1))
+partialPlot(rfmodel, train, meanfun)
+partialPlot(rfmodel, train, IQR)
+partialPlot(rfmodel, train, Q25)
+```
+
+
+
